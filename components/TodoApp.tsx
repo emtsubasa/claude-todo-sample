@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import TodoInput from './TodoInput';
 import TodoList from './TodoList';
 import TodoFilter from './TodoFilter';
+import TodoSort, { SortType } from './TodoSort';
 import TodoStats from './TodoStats';
 
 export interface Todo {
@@ -18,6 +19,7 @@ export type FilterType = 'all' | 'active' | 'completed';
 export default function TodoApp() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [sortBy, setSortBy] = useState<SortType>('newest');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -71,11 +73,32 @@ export default function TodoApp() {
     }
   };
 
+  const getSortedTodos = (todosToSort: Todo[]) => {
+    const sorted = [...todosToSort];
+
+    switch (sortBy) {
+      case 'newest':
+        return sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      case 'oldest':
+        return sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      case 'name-asc':
+        return sorted.sort((a, b) => a.text.localeCompare(b.text));
+      case 'name-desc':
+        return sorted.sort((a, b) => b.text.localeCompare(a.text));
+      case 'active-first':
+        return sorted.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1));
+      case 'completed-first':
+        return sorted.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? -1 : 1));
+      default:
+        return sorted;
+    }
+  };
+
   if (!mounted) {
     return null;
   }
 
-  const filteredTodos = getFilteredTodos();
+  const filteredTodos = getSortedTodos(getFilteredTodos());
   const stats = {
     total: todos.length,
     active: todos.filter(todo => !todo.completed).length,
@@ -92,6 +115,8 @@ export default function TodoApp() {
         <TodoInput onAdd={addTodo} />
 
         <TodoFilter currentFilter={filter} onFilterChange={setFilter} />
+
+        <TodoSort currentSort={sortBy} onSortChange={setSortBy} />
 
         <TodoList
           todos={filteredTodos}

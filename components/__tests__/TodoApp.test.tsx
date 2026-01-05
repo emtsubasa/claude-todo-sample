@@ -22,6 +22,7 @@ describe('TodoApp', () => {
     expect(screen.getByRole('button', { name: 'すべて' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '未完了' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '完了済み' })).toBeInTheDocument();
+    expect(screen.getByLabelText('並び替え')).toBeInTheDocument();
   });
 
   it('should add a new todo when user submits input', async () => {
@@ -159,8 +160,10 @@ describe('TodoApp', () => {
       expect(screen.getByText('Completed task')).toBeInTheDocument();
     });
 
-    const checkboxes = screen.getAllByRole('checkbox');
-    await user.click(checkboxes[1]);
+    // Find checkbox for "Completed task" specifically
+    const completedTaskElement = screen.getByText('Completed task');
+    const completedTaskCheckbox = completedTaskElement.closest('div')?.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    await user.click(completedTaskCheckbox);
 
     const activeFilterButton = screen.getByRole('button', { name: '未完了' });
     await user.click(activeFilterButton);
@@ -189,8 +192,10 @@ describe('TodoApp', () => {
       expect(screen.getByText('Completed task')).toBeInTheDocument();
     });
 
-    const checkboxes = screen.getAllByRole('checkbox');
-    await user.click(checkboxes[1]);
+    // Find checkbox for "Completed task" specifically
+    const completedTaskElement = screen.getByText('Completed task');
+    const completedTaskCheckbox = completedTaskElement.closest('div')?.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    await user.click(completedTaskCheckbox);
 
     const completedFilterButton = screen.getByRole('button', { name: '完了済み' });
     await user.click(completedFilterButton);
@@ -344,6 +349,185 @@ describe('TodoApp', () => {
       const stats = screen.getAllByText('全体');
       const totalElement = stats[0].previousElementSibling;
       expect(totalElement).toHaveTextContent('2');
+    });
+  });
+
+  it('should sort todos by newest first (default)', async () => {
+    const user = userEvent.setup();
+    render(<TodoApp />);
+
+    const input = screen.getByPlaceholderText('新しいタスクを入力...');
+    const addButton = screen.getByRole('button', { name: '追加' });
+
+    await user.type(input, 'First task');
+    await user.click(addButton);
+
+    await user.type(input, 'Second task');
+    await user.click(addButton);
+
+    await user.type(input, 'Third task');
+    await user.click(addButton);
+
+    await waitFor(() => {
+      const tasks = screen.getAllByText(/task/i);
+      expect(tasks[0]).toHaveTextContent('Third task');
+      expect(tasks[1]).toHaveTextContent('Second task');
+      expect(tasks[2]).toHaveTextContent('First task');
+    });
+  });
+
+  it('should sort todos by oldest first', async () => {
+    const user = userEvent.setup();
+    render(<TodoApp />);
+
+    const input = screen.getByPlaceholderText('新しいタスクを入力...');
+    const addButton = screen.getByRole('button', { name: '追加' });
+
+    await user.type(input, 'First task');
+    await user.click(addButton);
+
+    await user.type(input, 'Second task');
+    await user.click(addButton);
+
+    await user.type(input, 'Third task');
+    await user.click(addButton);
+
+    const sortSelect = screen.getByRole('combobox');
+    await user.selectOptions(sortSelect, 'oldest');
+
+    await waitFor(() => {
+      const tasks = screen.getAllByText(/task/i);
+      expect(tasks[0]).toHaveTextContent('First task');
+      expect(tasks[1]).toHaveTextContent('Second task');
+      expect(tasks[2]).toHaveTextContent('Third task');
+    });
+  });
+
+  it('should sort todos by name ascending', async () => {
+    const user = userEvent.setup();
+    render(<TodoApp />);
+
+    const input = screen.getByPlaceholderText('新しいタスクを入力...');
+    const addButton = screen.getByRole('button', { name: '追加' });
+
+    await user.type(input, 'Zebra task');
+    await user.click(addButton);
+
+    await user.type(input, 'Apple task');
+    await user.click(addButton);
+
+    await user.type(input, 'Mango task');
+    await user.click(addButton);
+
+    const sortSelect = screen.getByRole('combobox');
+    await user.selectOptions(sortSelect, 'name-asc');
+
+    await waitFor(() => {
+      const tasks = screen.getAllByText(/task/i);
+      expect(tasks[0]).toHaveTextContent('Apple task');
+      expect(tasks[1]).toHaveTextContent('Mango task');
+      expect(tasks[2]).toHaveTextContent('Zebra task');
+    });
+  });
+
+  it('should sort todos by name descending', async () => {
+    const user = userEvent.setup();
+    render(<TodoApp />);
+
+    const input = screen.getByPlaceholderText('新しいタスクを入力...');
+    const addButton = screen.getByRole('button', { name: '追加' });
+
+    await user.type(input, 'Zebra task');
+    await user.click(addButton);
+
+    await user.type(input, 'Apple task');
+    await user.click(addButton);
+
+    await user.type(input, 'Mango task');
+    await user.click(addButton);
+
+    const sortSelect = screen.getByRole('combobox');
+    await user.selectOptions(sortSelect, 'name-desc');
+
+    await waitFor(() => {
+      const tasks = screen.getAllByText(/task/i);
+      expect(tasks[0]).toHaveTextContent('Zebra task');
+      expect(tasks[1]).toHaveTextContent('Mango task');
+      expect(tasks[2]).toHaveTextContent('Apple task');
+    });
+  });
+
+  it('should sort todos with active first', async () => {
+    const user = userEvent.setup();
+    render(<TodoApp />);
+
+    const input = screen.getByPlaceholderText('新しいタスクを入力...');
+    const addButton = screen.getByRole('button', { name: '追加' });
+
+    await user.type(input, 'Active task 1');
+    await user.click(addButton);
+
+    await user.type(input, 'Completed task');
+    await user.click(addButton);
+
+    await user.type(input, 'Active task 2');
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Active task 1')).toBeInTheDocument();
+    });
+
+    // Complete the "Completed task"
+    const completedTaskElement = screen.getByText('Completed task');
+    const completedTaskCheckbox = completedTaskElement.closest('div')?.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    await user.click(completedTaskCheckbox);
+
+    const sortSelect = screen.getByRole('combobox');
+    await user.selectOptions(sortSelect, 'active-first');
+
+    await waitFor(() => {
+      const checkboxes = screen.getAllByRole('checkbox');
+      // Active tasks should come before completed tasks
+      expect(checkboxes[0]).not.toBeChecked();
+      expect(checkboxes[1]).not.toBeChecked();
+      expect(checkboxes[2]).toBeChecked();
+    });
+  });
+
+  it('should sort todos with completed first', async () => {
+    const user = userEvent.setup();
+    render(<TodoApp />);
+
+    const input = screen.getByPlaceholderText('新しいタスクを入力...');
+    const addButton = screen.getByRole('button', { name: '追加' });
+
+    await user.type(input, 'Active task 1');
+    await user.click(addButton);
+
+    await user.type(input, 'Completed task');
+    await user.click(addButton);
+
+    await user.type(input, 'Active task 2');
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Active task 1')).toBeInTheDocument();
+    });
+
+    // Complete the "Completed task"
+    const completedTaskElement = screen.getByText('Completed task');
+    const completedTaskCheckbox = completedTaskElement.closest('div')?.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    await user.click(completedTaskCheckbox);
+
+    const sortSelect = screen.getByRole('combobox');
+    await user.selectOptions(sortSelect, 'completed-first');
+
+    await waitFor(() => {
+      const checkboxes = screen.getAllByRole('checkbox');
+      // Completed tasks should come before active tasks
+      expect(checkboxes[0]).toBeChecked();
+      expect(checkboxes[1]).not.toBeChecked();
+      expect(checkboxes[2]).not.toBeChecked();
     });
   });
 });
